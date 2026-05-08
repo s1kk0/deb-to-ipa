@@ -14,17 +14,31 @@ jobs:
     steps:
       - name: Convert deb to IPA
         run: |
-          curl -L -o ${{ github.workspace }}/app.deb "${{ github.event.inputs.deb }}"
-          dpkg-deb -X ${{ github.workspace }}/app.deb ${{ github.workspace }}/app
-
-          mkdir -p ${{ github.workspace }}/ipa/Payload
-          cp -R ${{ github.workspace }}/app/Applications/* ${{ github.workspace }}/ipa/Payload
+          # Скачиваем файл
+          curl -L -o app.deb "${{ github.event.inputs.deb }}"
           
-          cd ${{ github.workspace }}/ipa
-          zip -r ${{ github.workspace }}/App.ipa .
+          # Распаковываем
+          mkdir temp_deb
+          dpkg-deb -x app.deb temp_deb
+          
+          # Создаем структуру IPA
+          mkdir -p Payload
+          
+          # Ищем приложение
+          APP_PATH=$(find temp_deb -name "*.app" -type d | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "ОШИБКА: Папка .app не найдена!"
+            exit 1
+          fi
+          
+          cp -R "$APP_PATH" Payload/
+          
+          # Собираем
+          zip -r App.ipa Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: App
-          path: ${{ github.workspace }}/App.ipa
+          path: App.ipa
